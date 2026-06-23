@@ -22,6 +22,13 @@
     --text3:     #64748b;
     --radius:    8px;
     --mono:      'JetBrains Mono', monospace;
+    /* Estados de gestión (CRM) */
+    --st-sin:       #64748b;
+    --st-llamado:   #4f8ef7;
+    --st-reunion:   #a78bfa;
+    --st-espera:    #fbbf24;
+    --st-rechazado: #f87171;
+    --st-cliente:   #34d399;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,6 +67,16 @@
 
   .header-right { display: flex; align-items: center; gap: 12px; }
 
+  /* VIEW TOGGLE */
+  .view-toggle { display: flex; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .vbtn {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text2); font-family: 'Inter', sans-serif; font-size: 12px;
+    padding: 7px 12px; transition: background .15s, color .15s;
+  }
+  .vbtn:hover { color: var(--text); }
+  .vbtn.active { background: var(--accent); color: #fff; }
+
   /* COST METER */
   .cost-badge {
     display: flex; align-items: center; gap: 8px;
@@ -80,6 +97,8 @@
     flex: 1;
     overflow: hidden;
   }
+
+  .content { flex: 1; display: flex; overflow: hidden; position: relative; }
 
   /* SIDEBAR */
   .sidebar {
@@ -188,6 +207,7 @@
   .biz-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .biz-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .biz-phone { font-size: 11px; font-family: var(--mono); color: var(--text2); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
   .web-badge {
     font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 500;
   }
@@ -195,6 +215,7 @@
   .web-no  { background: rgba(100,116,139,.1); color: var(--text3); border: 1px solid var(--border); }
 
   /* MAP */
+  #map-view { flex: 1; display: flex; position: relative; }
   #map {
     flex: 1;
     position: relative;
@@ -214,6 +235,20 @@
     z-index: 10;
     transition: opacity .3s;
   }
+
+  /* MAP LEGEND (estados) */
+  .map-legend {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(15,17,23,.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-size: 11px; color: var(--text2);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .map-legend .lg-item { display: flex; align-items: center; gap: 6px; }
 
   /* SPINNER */
   .spinner {
@@ -283,6 +318,83 @@
     display: flex; gap: 8px;
     flex-shrink: 0;
   }
+
+  /* ─── TABLE / CRM VIEW ─────────────────────────────────────────────── */
+  #table-view { flex: 1; flex-direction: column; overflow: hidden; }
+
+  .crm-toolbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .crm-toolbar input[type=text] { width: 240px; }
+  .crm-toolbar select { width: auto; }
+
+  .seg { display: flex; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg-btn {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text2); font-family: 'Inter', sans-serif; font-size: 12px;
+    padding: 7px 12px; transition: background .15s, color .15s;
+  }
+  .seg-btn:hover { color: var(--text); }
+  .seg-btn.active { background: var(--accent); color: #fff; }
+
+  /* FUNNEL SUMMARY */
+  .funnel {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .fcard {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px 14px; min-width: 92px; text-align: center;
+  }
+  .fcount { font-size: 20px; font-weight: 600; font-family: var(--mono); }
+  .flabel { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
+
+  .table-scroll { flex: 1; overflow: auto; }
+  .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  table#crm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #crm-table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--bg2);
+    text-align: left; font-size: 11px; font-weight: 500; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .4px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  #crm-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  #crm-table tbody tr:hover { background: var(--bg2); }
+  .t-name { font-weight: 500; }
+  .t-empty { text-align: center; color: var(--text3); padding: 30px; }
+  .t-mono { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+
+  .status-select {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 12px; padding: 5px 8px; cursor: pointer;
+    border-left-width: 3px;
+  }
+  .note-input {
+    width: 160px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; padding: 5px 8px;
+  }
+  .note-input:focus { border-color: var(--accent); outline: none; }
+
+  .act-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text2); font-size: 12px; padding: 5px 8px; text-decoration: none;
+    cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .act-btn:hover { border-color: var(--accent); color: var(--text); }
+  .act-btn.wa { color: var(--green); border-color: rgba(52,211,153,.35); }
+  .act-btn.wa:hover { background: rgba(52,211,153,.12); }
+  .act-btn.disabled { opacity: .35; pointer-events: none; }
+  .act-cell { display: flex; gap: 6px; }
 </style>
 </head>
 <body>
@@ -296,6 +408,10 @@
     </div>
   </div>
   <div class="header-right">
+    <div class="view-toggle">
+      <button class="vbtn active" data-view="map" onclick="setView('map')">🗺️ Mapa</button>
+      <button class="vbtn" data-view="table" onclick="setView('table')">📋 Tabla</button>
+    </div>
     <div class="cost-badge">
       <span class="cost-label">Free tier</span>
       <div class="cost-bar-wrap"><div class="cost-bar" id="cost-bar" style="width:0%"></div></div>
@@ -393,15 +509,54 @@
     </div>
   </div>
 
-  <!-- MAP -->
-  <div id="map">
-    <div class="map-hint" id="map-hint">Click en el mapa para elegir el centro de búsqueda</div>
-    <div id="detail-panel">
-      <span class="close-detail" onclick="closeDetail()">×</span>
-      <div class="detail-name" id="dp-name"></div>
-      <div class="detail-row" id="dp-phone"></div>
-      <div class="detail-row" id="dp-web"></div>
-      <div class="detail-row" id="dp-address" style="color:var(--text3)"></div>
+  <!-- CONTENT: mapa o tabla -->
+  <div class="content">
+    <!-- MAP -->
+    <div id="map-view">
+      <div id="map">
+        <div class="map-hint" id="map-hint">Click en el mapa para elegir el centro de búsqueda</div>
+        <div class="map-legend" id="map-legend" style="display:none"></div>
+        <div id="detail-panel">
+          <span class="close-detail" onclick="closeDetail()">×</span>
+          <div class="detail-name" id="dp-name"></div>
+          <div class="detail-row" id="dp-status"></div>
+          <div class="detail-row" id="dp-phone"></div>
+          <div class="detail-row" id="dp-web"></div>
+          <div class="detail-row" id="dp-address" style="color:var(--text3)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE / CRM -->
+    <div id="table-view" style="display:none">
+      <div class="crm-toolbar">
+        <input type="text" id="filter-text" placeholder="Buscar nombre o dirección…" oninput="onFilterChange()" />
+        <div class="seg" id="filter-web">
+          <button class="seg-btn active" data-web="all" onclick="setWebFilter('all', this)">Todos</button>
+          <button class="seg-btn" data-web="yes" onclick="setWebFilter('yes', this)">Con web</button>
+          <button class="seg-btn" data-web="no" onclick="setWebFilter('no', this)">Sin web</button>
+        </div>
+        <select id="filter-status" onchange="onFilterChange()"></select>
+        <span class="badge" id="table-count" style="margin-left:auto">0</span>
+      </div>
+      <div class="funnel" id="funnel"></div>
+      <div class="table-scroll">
+        <table id="crm-table">
+          <thead>
+            <tr>
+              <th>Negocio</th>
+              <th>Teléfono</th>
+              <th>Web</th>
+              <th>Dirección</th>
+              <th>Estado</th>
+              <th>Notas</th>
+              <th>Últ. contacto</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="crm-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -424,6 +579,23 @@ let selectedCard = null;
 const COST_NEARBY  = 0.032;
 const FREE_TIER    = 200;
 
+// ─── CRM: estados de gestión ─────────────────────────────────────────────────
+const STATUSES = [
+  { key: 'sin_contactar', label: 'Sin contactar',      color: '#64748b' },
+  { key: 'llamado',       label: 'Llamado',            color: '#4f8ef7' },
+  { key: 'reunion',       label: 'Reunión solicitada', color: '#a78bfa' },
+  { key: 'en_espera',     label: 'En espera',          color: '#fbbf24' },
+  { key: 'rechazado',     label: 'Rechazado',          color: '#f87171' },
+  { key: 'cliente',       label: 'Cliente / Cerrado',  color: '#34d399' },
+];
+const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.key, s]));
+const LS_KEY = 'places_scout_state';
+// Mensaje pre-armado de WhatsApp ({name} se reemplaza por el nombre del negocio).
+const WA_TEMPLATE = '¡Hola! Te escribo de Gurial. Vimos {name} y diseñamos páginas web para negocios como el tuyo. ¿Te interesaría ver una propuesta sin compromiso?';
+
+// Filtros activos
+let webFilter = 'all';
+
 // ─── MAP INIT ─────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   map = L.map('map', { zoomControl: true }).setView([-34.9011, -56.1645], 13);
@@ -434,6 +606,23 @@ window.addEventListener('DOMContentLoaded', () => {
   }).addTo(map);
 
   map.on('click', onMapClick);
+
+  initStatusFilterOptions();
+  buildMapLegend();
+
+  // Restaurar sesión guardada (localStorage)
+  if (loadState()) {
+    renderList();
+    renderMarkers();
+    renderTable();
+    renderFunnel();
+    document.getElementById('import-banner').style.display = 'none';
+    document.getElementById('map-hint').style.opacity = '0';
+    document.getElementById('map-legend').style.display = 'flex';
+    toast(`✓ ${Object.keys(businesses).length} negocios restaurados`);
+  } else {
+    renderFunnel();
+  }
 });
 
 function onMapClick(e) {
@@ -489,14 +678,19 @@ async function runSearch() {
     for (const b of found) {
       if (businesses[b.place_id]) continue;  // ya consultado
       businesses[b.place_id] = {
-        place_id: b.place_id,
-        name:     b.name,
-        phone:    b.phone || '',
-        website:  b.website || '',
-        address:  b.address || '',
-        lat:      b.lat,
-        lng:      b.lng,
+        place_id:   b.place_id,
+        name:       b.name,
+        phone:      b.phone || '',
+        phone_intl: b.phone_intl || '',
+        website:    b.website || '',
+        address:    b.address || '',
+        lat:        b.lat,
+        lng:        b.lng,
         queried_at: new Date().toISOString(),
+        // Capa CRM
+        status:       'sin_contactar',
+        notes:        '',
+        last_contact: '',
       };
       nuevos++;
     }
@@ -505,10 +699,14 @@ async function runSearch() {
     addCost(COST_NEARBY);
     searchZones.push({ lat, lng, radius, type: btype, ts: new Date().toISOString(), found: found.length });
 
+    saveState();
     renderList();
     renderMarkers();
+    renderTable();
+    renderFunnel();
     toast(`✓ ${nuevos} negocios nuevos agregados`);
     document.getElementById('map-hint').style.opacity = '0';
+    document.getElementById('map-legend').style.display = 'flex';
 
   } catch (err) {
     toast(`Error: ${err.message}`, 'error');
@@ -560,13 +758,14 @@ async function searchPlaces(key, lat, lng, radius, type) {
   if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
 
   return (data.places || []).map(p => ({
-    place_id: p.id || '',
-    name:     p.displayName?.text || '',
-    phone:    p.nationalPhoneNumber || p.internationalPhoneNumber || '',
-    website:  p.websiteUri || '',
-    address:  p.formattedAddress || '',
-    lat:      p.location?.latitude,
-    lng:      p.location?.longitude
+    place_id:   p.id || '',
+    name:       p.displayName?.text || '',
+    phone:      p.nationalPhoneNumber || p.internationalPhoneNumber || '',
+    phone_intl: p.internationalPhoneNumber || '',
+    website:    p.websiteUri || '',
+    address:    p.formattedAddress || '',
+    lat:        p.location?.latitude,
+    lng:        p.location?.longitude
   }));
 }
 
@@ -580,38 +779,232 @@ function addCost(amount) {
   bar.style.background = pct > 80 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
 }
 
-// ─── RENDER LIST ──────────────────────────────────────────────────────────────
+// ─── PERSISTENCIA (localStorage) ───────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      businesses, searchZones, totalCost, savedAt: new Date().toISOString()
+    }));
+  } catch (e) { /* storage lleno o no disponible */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    businesses  = normalizeBusinesses(data.businesses || {});
+    searchZones = data.searchZones || [];
+    totalCost   = 0; addCost(data.totalCost || 0);
+    return Object.keys(businesses).length > 0;
+  } catch (e) { return false; }
+}
+
+// Rellena campos CRM faltantes (compatibilidad con JSON viejo sin estados).
+function normalizeBusinesses(obj) {
+  const out = {};
+  for (const [id, b] of Object.entries(obj)) {
+    out[id] = { status: 'sin_contactar', notes: '', last_contact: '', phone_intl: '', ...b };
+    if (!STATUS_MAP[out[id].status]) out[id].status = 'sin_contactar';
+  }
+  return out;
+}
+
+// ─── VIEW TOGGLE ────────────────────────────────────────────────────────────────
+function setView(v) {
+  document.getElementById('map-view').style.display   = (v === 'map')   ? 'flex' : 'none';
+  document.getElementById('table-view').style.display = (v === 'table') ? 'flex' : 'none';
+  document.querySelectorAll('.vbtn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  if (v === 'map' && map) setTimeout(() => map.invalidateSize(), 60);  // Leaflet necesita esto tras estar oculto
+  if (v === 'table') { renderTable(); renderFunnel(); }
+}
+
+// ─── FILTROS ──────────────────────────────────────────────────────────────────
+function initStatusFilterOptions() {
+  const sel = document.getElementById('filter-status');
+  sel.innerHTML = '<option value="">Todos los estados</option>' +
+    STATUSES.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+}
+
+function setWebFilter(val, btn) {
+  webFilter = val;
+  document.querySelectorAll('#filter-web .seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  onFilterChange();
+}
+
+function onFilterChange() {
+  renderTable();
+  renderMarkers();
+  renderList();
+}
+
+function applyFilters(list) {
+  const txt = (document.getElementById('filter-text')?.value || '').trim().toLowerCase();
+  const st  = document.getElementById('filter-status')?.value || '';
+  return list.filter(b => {
+    if (webFilter === 'yes' && !b.website) return false;
+    if (webFilter === 'no'  &&  b.website) return false;
+    if (st && b.status !== st) return false;
+    if (txt && !((b.name || '').toLowerCase().includes(txt) ||
+                 (b.address || '').toLowerCase().includes(txt))) return false;
+    return true;
+  });
+}
+
+// ─── RENDER LIST (sidebar) ──────────────────────────────────────────────────────
 function renderList() {
   const list = document.getElementById('results-list');
-  const all  = Object.values(businesses);
-  document.getElementById('total-badge').textContent = `${all.length} negocios`;
+  const total = Object.keys(businesses).length;
+  document.getElementById('total-badge').textContent = `${total} negocios`;
 
-  if (all.length === 0) {
+  if (total === 0) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">🗺️</div><div>Hacé click en el mapa para elegir un punto y luego buscá negocios</div></div>`;
     return;
   }
 
-  list.innerHTML = all.map(b => `
+  const all = applyFilters(Object.values(businesses));
+  if (all.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div>Ningún negocio coincide con el filtro</div></div>`;
+    return;
+  }
+
+  list.innerHTML = all.map(b => {
+    const s = STATUS_MAP[b.status] || STATUS_MAP.sin_contactar;
+    return `
     <div class="biz-card" id="card-${b.place_id}" onclick="selectBiz('${b.place_id}')">
-      <div class="biz-name" title="${b.name}">${b.name}</div>
+      <div class="biz-name" title="${escapeAttr(b.name)}">${escapeHtml(b.name)}</div>
       <div class="biz-meta">
-        ${b.phone ? `<span class="biz-phone">${b.phone}</span>` : '<span class="biz-phone" style="color:var(--text3)">Sin teléfono</span>'}
+        <span class="status-dot" style="background:${s.color}" title="${s.label}"></span>
+        ${b.phone ? `<span class="biz-phone">${escapeHtml(b.phone)}</span>` : '<span class="biz-phone" style="color:var(--text3)">Sin teléfono</span>'}
         <span class="web-badge ${b.website ? 'web-yes' : 'web-no'}">${b.website ? '🌐 Tiene web' : 'Sin web'}</span>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+// ─── RENDER TABLE (CRM) ─────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('crm-tbody');
+  if (!tbody) return;
+  const rows = applyFilters(Object.values(businesses));
+  document.getElementById('table-count').textContent =
+    `${rows.length} / ${Object.keys(businesses).length}`;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="t-empty">Sin negocios para este filtro. Hacé una búsqueda en el mapa.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(b => {
+    const s = STATUS_MAP[b.status] || STATUS_MAP.sin_contactar;
+    const opts = STATUSES.map(o =>
+      `<option value="${o.key}" ${o.key === b.status ? 'selected' : ''}>${o.label}</option>`).join('');
+    const wa = waLink(b);
+    const callBtn = b.phone
+      ? `<a class="act-btn" href="tel:${escapeAttr(b.phone)}" title="Llamar">📞</a>`
+      : `<span class="act-btn disabled" title="Sin teléfono">📞</span>`;
+    const waBtn = wa
+      ? `<a class="act-btn wa" href="${wa}" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>`
+      : `<span class="act-btn disabled" title="Sin teléfono">WhatsApp</span>`;
+    const webCell = b.website
+      ? `<a class="web-badge web-yes" href="${escapeAttr(b.website)}" target="_blank" rel="noopener">🌐 Sí</a>`
+      : `<span class="web-badge web-no">Sin web</span>`;
+
+    return `
+    <tr>
+      <td class="t-name">${escapeHtml(b.name)}</td>
+      <td class="t-mono">${b.phone ? escapeHtml(b.phone) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${webCell}</td>
+      <td style="color:var(--text2); max-width:240px">${escapeHtml(b.address || '—')}</td>
+      <td>
+        <select class="status-select" style="border-left-color:${s.color}"
+                onchange="changeStatus('${b.place_id}', this.value)">${opts}</select>
+      </td>
+      <td><input class="note-input" value="${escapeAttr(b.notes)}" placeholder="—"
+                 onchange="changeNote('${b.place_id}', this.value)" /></td>
+      <td class="t-mono">${b.last_contact || '<span style="color:var(--text3)">—</span>'}</td>
+      <td><div class="act-cell">${callBtn}${waBtn}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function waLink(b) {
+  const digits = (b.phone_intl || b.phone || '').replace(/[^\d]/g, '');
+  if (!digits) return '';
+  const msg = WA_TEMPLATE.replace('{name}', b.name || 'tu negocio');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+}
+
+// ─── FUNNEL SUMMARY ─────────────────────────────────────────────────────────────
+function renderFunnel() {
+  const el = document.getElementById('funnel');
+  if (!el) return;
+  const all = Object.values(businesses);
+  const counts = {}; STATUSES.forEach(s => counts[s.key] = 0);
+  all.forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1; });
+
+  const contactados = all.length - (counts.sin_contactar || 0);
+  const conv = contactados ? (counts.cliente / contactados * 100) : 0;
+
+  el.innerHTML = STATUSES.map(s =>
+    `<div class="fcard">
+       <div class="fcount" style="color:${s.color}">${counts[s.key] || 0}</div>
+       <div class="flabel">${s.label}</div>
+     </div>`).join('') +
+    `<div class="fcard">
+       <div class="fcount" style="color:var(--accent)">${conv.toFixed(0)}%</div>
+       <div class="flabel">Conversión</div>
+     </div>`;
+}
+
+// ─── ESTADO / NOTAS ─────────────────────────────────────────────────────────────
+function changeStatus(place_id, val) {
+  const b = businesses[place_id];
+  if (!b || !STATUS_MAP[val]) return;
+  b.status = val;
+  b.last_contact = new Date().toISOString().slice(0, 10);  // YYYY-MM-DD
+  saveState();
+  renderTable();
+  renderFunnel();
+  renderMarkers();
+  renderList();
+}
+
+function changeNote(place_id, val) {
+  const b = businesses[place_id];
+  if (!b) return;
+  b.notes = val;
+  saveState();
 }
 
 // ─── MARKERS ──────────────────────────────────────────────────────────────────
 function renderMarkers() {
+  if (!map) return;
+  const visible = new Set(applyFilters(Object.values(businesses)).map(b => b.place_id));
   Object.values(businesses).forEach(b => {
-    if (bizMarkers[b.place_id] || !b.lat) return;
-    const color = b.website ? '#34d399' : '#94a3b8';
-    const m = L.circleMarker([b.lat, b.lng], {
-      radius: 6, color, fillColor: color, fillOpacity: .8, weight: 1.5
-    }).addTo(map).on('click', () => selectBiz(b.place_id));
-    bizMarkers[b.place_id] = m;
+    if (!b.lat) return;
+    const show  = visible.has(b.place_id);
+    const color = (STATUS_MAP[b.status] || STATUS_MAP.sin_contactar).color;
+
+    if (bizMarkers[b.place_id]) {
+      const m = bizMarkers[b.place_id];
+      if (!show) { m.remove(); delete bizMarkers[b.place_id]; return; }
+      m.setStyle({ color, fillColor: color });
+    } else if (show) {
+      const m = L.circleMarker([b.lat, b.lng], {
+        radius: 6, color, fillColor: color, fillOpacity: .85, weight: 1.5
+      }).addTo(map).on('click', () => selectBiz(b.place_id));
+      bizMarkers[b.place_id] = m;
+    }
   });
+}
+
+function buildMapLegend() {
+  const el = document.getElementById('map-legend');
+  el.innerHTML = STATUSES.map(s =>
+    `<div class="lg-item"><span class="status-dot" style="background:${s.color}"></span>${s.label}</div>`
+  ).join('');
 }
 
 // ─── SELECT BIZ ───────────────────────────────────────────────────────────────
@@ -629,12 +1022,15 @@ function selectBiz(place_id) {
   if (b.lat) map.panTo([b.lat, b.lng]);
 
   // detail panel
+  const s = STATUS_MAP[b.status] || STATUS_MAP.sin_contactar;
   document.getElementById('dp-name').textContent = b.name;
+  document.getElementById('dp-status').innerHTML =
+    `<span class="status-dot" style="background:${s.color}"></span> ${s.label}`;
   document.getElementById('dp-phone').innerHTML  = b.phone
-    ? `📞 <a href="tel:${b.phone}">${b.phone}</a>`
+    ? `📞 <a href="tel:${escapeAttr(b.phone)}">${escapeHtml(b.phone)}</a>`
     : '<span style="color:var(--text3)">Sin teléfono registrado</span>';
   document.getElementById('dp-web').innerHTML = b.website
-    ? `🌐 <a href="${b.website}" target="_blank">${b.website}</a>`
+    ? `🌐 <a href="${escapeAttr(b.website)}" target="_blank" rel="noopener">${escapeHtml(b.website)}</a>`
     : '<span style="color:var(--text3)">Sin sitio web</span>';
   document.getElementById('dp-address').textContent = b.address || '';
   document.getElementById('detail-panel').classList.add('visible');
@@ -654,12 +1050,15 @@ function exportJSON() {
 }
 
 function exportCSV() {
-  const rows = [['nombre','telefono','tiene_web','website','direccion','lat','lng','consultado_en']];
+  const rows = [['nombre','telefono','tiene_web','website','direccion','estado','notas','ultimo_contacto','lat','lng','consultado_en']];
   Object.values(businesses).forEach(b => {
     rows.push([
       `"${(b.name||'').replace(/"/g,'""')}"`,
       b.phone, b.website ? 'sí' : 'no',
       b.website, `"${(b.address||'').replace(/"/g,'""')}"`,
+      STATUS_MAP[b.status]?.label || b.status,
+      `"${(b.notes||'').replace(/"/g,'""')}"`,
+      b.last_contact || '',
       b.lat, b.lng, b.queried_at
     ]);
   });
@@ -683,13 +1082,17 @@ document.getElementById('import-file').addEventListener('change', e => {
     try {
       const data = JSON.parse(ev.target.result);
       if (data.businesses) {
-        businesses = { ...data.businesses };
+        businesses = normalizeBusinesses(data.businesses);
         searchZones = data.searchZones || [];
         if (data.totalCost) { totalCost = 0; addCost(data.totalCost); }
+        saveState();
         renderList();
         renderMarkers();
+        renderTable();
+        renderFunnel();
         toast(`✓ ${Object.keys(businesses).length} negocios importados`);
         document.getElementById('import-banner').style.display = 'none';
+        document.getElementById('map-legend').style.display = 'flex';
       }
     } catch {
       toast('Archivo JSON inválido', 'error');
@@ -704,12 +1107,22 @@ function clearAll() {
   businesses = {}; searchZones = []; totalCost = 0;
   Object.values(bizMarkers).forEach(m => m.remove());
   bizMarkers = {};
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
   addCost(0); document.getElementById('cost-display').textContent = '$0.000';
   renderList();
+  renderTable();
+  renderFunnel();
+  document.getElementById('map-legend').style.display = 'none';
   toast('Datos eliminados');
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
 function toggleKey() {
   const inp = document.getElementById('api-key');
   const tog = document.querySelector('.key-toggle');
