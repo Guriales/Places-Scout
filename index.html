@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Places Scout</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:        #0f1117;
+    --bg2:       #171b26;
+    --bg3:       #1e2333;
+    --border:    #2a2f42;
+    --accent:    #4f8ef7;
+    --accent2:   #3b6fd4;
+    --green:     #34d399;
+    --yellow:    #fbbf24;
+    --red:       #f87171;
+    --text:      #e2e8f0;
+    --text2:     #94a3b8;
+    --text3:     #64748b;
+    --radius:    8px;
+    --mono:      'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub  { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  /* COST METER */
+  .cost-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .cost-label { color: var(--text3); }
+  .cost-val   { font-family: var(--mono); font-weight: 500; color: var(--green); }
+  .cost-bar-wrap { width: 80px; height: 4px; background: var(--border); border-radius: 2px; }
+  .cost-bar { height: 100%; border-radius: 2px; background: var(--green); transition: width .3s, background .3s; }
+
+  /* LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
+
+  input[type=text], input[type=number], select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .coords-row { display: flex; gap: 8px; }
+  .coords-row > div { flex: 1; }
+
+  .radius-row { display: flex; align-items: center; gap: 8px; }
+  .radius-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .radius-val { font-family: var(--mono); font-size: 12px; color: var(--accent); min-width: 48px; text-align: right; }
+
+  .hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* BUTTONS */
+  .btn {
+    border: none; cursor: pointer; border-radius: var(--radius);
+    font-family: 'Inter', sans-serif; font-weight: 500; font-size: 13px;
+    padding: 9px 14px; transition: opacity .15s, background .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary  { background: var(--accent); color: #fff; width: 100%; justify-content: center; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+  .btn-sm       { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-size: 12px; padding: 6px 10px; }
+  .btn-sm:hover { border-color: var(--accent); color: var(--text); }
+  .btn-danger   { background: transparent; border: 1px solid var(--red); color: var(--red); font-size: 12px; padding: 6px 10px; }
+
+  .action-row { display: flex; gap: 8px; }
+  .action-row .btn-primary { flex: 1; }
+
+  /* KEY ROW */
+  .key-row { position: relative; }
+  .key-row input { padding-right: 72px; font-family: var(--mono); font-size: 12px; }
+  .key-toggle {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: var(--text3); cursor: pointer; background: var(--border);
+    border-radius: 4px; padding: 2px 6px; user-select: none;
+  }
+  .key-toggle:hover { color: var(--text); }
+
+  /* RESULTS LIST */
+  .results-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .results-title { font-size: 12px; font-weight: 500; color: var(--text2); }
+  .badge {
+    font-size: 10px; font-family: var(--mono);
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 8px; color: var(--text3);
+  }
+
+  .results-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .results-list::-webkit-scrollbar { width: 4px; }
+  .results-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .biz-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .biz-card:hover { border-color: var(--accent); }
+  .biz-card.selected { border-color: var(--accent); background: #1a2340; }
+
+  .biz-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .biz-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .biz-phone { font-size: 11px; font-family: var(--mono); color: var(--text2); }
+  .web-badge {
+    font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 500;
+  }
+  .web-yes { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.3); }
+  .web-no  { background: rgba(100,116,139,.1); color: var(--text3); border: 1px solid var(--border); }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    position: relative;
+    background: var(--bg);
+  }
+
+  /* MAP OVERLAY for click-to-place */
+  .map-hint {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,17,23,.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 14px;
+    font-size: 12px; color: var(--text2);
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    transition: opacity .3s;
+  }
+
+  /* SPINNER */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* EMPTY STATE */
+  .empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; gap: 8px; color: var(--text3); font-size: 13px;
+    padding: 24px;
+    text-align: center;
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 4px; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 16px;
+    font-size: 13px; color: var(--text);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+    z-index: 9999;
+    max-width: 300px;
+  }
+  #toast.show { opacity: 1; }
+
+  /* DETAIL PANEL (map overlay) */
+  #detail-panel {
+    position: absolute; bottom: 16px; right: 16px;
+    width: 260px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    z-index: 20;
+    display: none;
+  }
+  #detail-panel.visible { display: block; }
+  .detail-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .detail-row  { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: flex; gap: 6px; }
+  .detail-row a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .close-detail { position: absolute; top: 8px; right: 10px; cursor: pointer; color: var(--text3); font-size: 16px; line-height: 1; }
+
+  /* IMPORT BANNER */
+  #import-banner {
+    background: rgba(79,142,247,.08);
+    border-bottom: 1px solid rgba(79,142,247,.2);
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text2);
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  #import-banner button { margin-left: auto; }
+
+  /* FOOTER TOOLBAR */
+  .sidebar-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📍</div>
+    <div>
+      <div class="logo-text">Places Scout</div>
+      <div class="logo-sub">Google Places API Explorer</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="cost-badge">
+      <span class="cost-label">Free tier</span>
+      <div class="cost-bar-wrap"><div class="cost-bar" id="cost-bar" style="width:0%"></div></div>
+      <span class="cost-val" id="cost-display">$0.00</span>
+      <span class="cost-label">/ $200</span>
+    </div>
+  </div>
+</header>
+
+<div id="import-banner">
+  <span>¿Tenés datos de sesiones anteriores?</span>
+  <label class="btn btn-sm" style="cursor:pointer; margin:0;">
+    📂 Importar JSON
+    <input type="file" id="import-file" accept=".json" style="display:none" />
+  </label>
+</div>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <!-- API KEY -->
+      <div>
+        <label>API Key de Google</label>
+        <div class="key-row">
+          <input type="password" id="api-key" placeholder="AIza..." autocomplete="off" />
+          <span class="key-toggle" onclick="toggleKey()">mostrar</span>
+        </div>
+      </div>
+
+      <!-- COORDS -->
+      <div>
+        <label>Centro (click en mapa o ingresá)</label>
+        <div class="coords-row">
+          <div><input type="number" id="lat" placeholder="Lat" step="0.0001" /></div>
+          <div><input type="number" id="lng" placeholder="Lng" step="0.0001" /></div>
+        </div>
+      </div>
+
+      <!-- RADIO -->
+      <div>
+        <label>Radio de búsqueda</label>
+        <div class="radius-row">
+          <input type="range" id="radius" min="100" max="5000" step="100" value="1000"
+                 oninput="document.getElementById('radius-val').textContent=this.value+'m'" />
+          <span class="radius-val" id="radius-val">1000m</span>
+        </div>
+      </div>
+
+      <!-- TYPE -->
+      <div>
+        <label>Tipo de negocio (opcional)</label>
+        <select id="btype">
+          <option value="">— Todos —</option>
+          <option value="restaurant">Restaurante</option>
+          <option value="store">Tienda</option>
+          <option value="supermarket">Supermercado</option>
+          <option value="bank">Banco</option>
+          <option value="hospital">Hospital</option>
+          <option value="gym">Gimnasio</option>
+          <option value="hotel">Hotel</option>
+          <option value="pharmacy">Farmacia</option>
+          <option value="car_dealer">Concesionaria</option>
+          <option value="real_estate_agency">Inmobiliaria</option>
+          <option value="beauty_salon">Salón de belleza</option>
+          <option value="electrician">Electricista</option>
+          <option value="plumber">Plomero</option>
+        </select>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-primary" id="search-btn" onclick="runSearch()">
+          🔍 Buscar negocios
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-header">
+      <span class="results-title">Resultados acumulados</span>
+      <span class="badge" id="total-badge">0 negocios</span>
+    </div>
+
+    <div class="results-list" id="results-list">
+      <div class="empty">
+        <div class="empty-icon">🗺️</div>
+        <div>Hacé click en el mapa para elegir un punto y luego buscá negocios</div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-sm" onclick="exportJSON()" title="Exportar sesión">💾 JSON</button>
+      <button class="btn btn-sm" onclick="exportCSV()" title="Exportar CSV">📊 CSV</button>
+      <button class="btn btn-danger" onclick="clearAll()" title="Borrar todo">🗑️ Limpiar</button>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map">
+    <div class="map-hint" id="map-hint">Click en el mapa para elegir el centro de búsqueda</div>
+    <div id="detail-panel">
+      <span class="close-detail" onclick="closeDetail()">×</span>
+      <div class="detail-name" id="dp-name"></div>
+      <div class="detail-row" id="dp-phone"></div>
+      <div class="detail-row" id="dp-web"></div>
+      <div class="detail-row" id="dp-address" style="color:var(--text3)"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Leaflet (no requiere API key) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let businesses = {};   // keyed by place_id
+let searchZones = [];  // { lat, lng, radius, ts }
+let totalCost = 0;
+let map, centerMarker, radiusCircle, bizMarkers = {};
+let selectedCard = null;
+
+// Cost per request (USD)
+const COST_NEARBY  = 0.032;
+const FREE_TIER    = 200;
+
+// ─── MAP INIT ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  map = L.map('map', { zoomControl: true }).setView([-34.9011, -56.1645], 13);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap, © CartoDB',
+    maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', onMapClick);
+});
+
+function onMapClick(e) {
+  const { lat, lng } = e.latlng;
+  document.getElementById('lat').value = lat.toFixed(6);
+  document.getElementById('lng').value = lng.toFixed(6);
+  updateCenterMarker(lat, lng);
+}
+
+function updateCenterMarker(lat, lng) {
+  if (centerMarker) centerMarker.remove();
+  if (radiusCircle) radiusCircle.remove();
+
+  const r = parseInt(document.getElementById('radius').value);
+
+  centerMarker = L.circleMarker([lat, lng], {
+    radius: 8, color: '#4f8ef7', fillColor: '#4f8ef7', fillOpacity: 1, weight: 2
+  }).addTo(map).bindTooltip(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+
+  radiusCircle = L.circle([lat, lng], {
+    radius: r, color: '#4f8ef7', fillColor: '#4f8ef7', fillOpacity: 0.07, weight: 1, dashArray: '4'
+  }).addTo(map);
+}
+
+document.getElementById('radius').addEventListener('input', () => {
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+  if (!isNaN(lat) && !isNaN(lng)) updateCenterMarker(lat, lng);
+});
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+async function runSearch() {
+  const key    = document.getElementById('api-key').value.trim();
+  const lat    = parseFloat(document.getElementById('lat').value);
+  const lng    = parseFloat(document.getElementById('lng').value);
+  const radius = parseInt(document.getElementById('radius').value);
+  const btype  = document.getElementById('btype').value;
+
+  if (!key)             { toast('Ingresá tu API Key de Google', 'warn'); return; }
+  if (isNaN(lat)||isNaN(lng)) { toast('Hacé click en el mapa para elegir un punto', 'warn'); return; }
+
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Buscando...';
+
+  try {
+    // Llamamos a la Places API (New) directamente desde el navegador
+    // (soporta CORS), así no hace falta backend y funciona en GitHub Pages.
+    const found = await searchPlaces(key, lat, lng, radius, btype);
+    toast(`${found.length} negocios encontrados`);
+
+    let nuevos = 0;
+    for (const b of found) {
+      if (businesses[b.place_id]) continue;  // ya consultado
+      businesses[b.place_id] = {
+        place_id: b.place_id,
+        name:     b.name,
+        phone:    b.phone || '',
+        website:  b.website || '',
+        address:  b.address || '',
+        lat:      b.lat,
+        lng:      b.lng,
+        queried_at: new Date().toISOString(),
+      };
+      nuevos++;
+    }
+
+    // Places API (New): una sola llamada searchNearby por búsqueda.
+    addCost(COST_NEARBY);
+    searchZones.push({ lat, lng, radius, type: btype, ts: new Date().toISOString(), found: found.length });
+
+    renderList();
+    renderMarkers();
+    toast(`✓ ${nuevos} negocios nuevos agregados`);
+    document.getElementById('map-hint').style.opacity = '0';
+
+  } catch (err) {
+    toast(`Error: ${err.message}`, 'error');
+    console.error(err);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🔍 Buscar negocios';
+}
+
+// Campos que pedimos a la API (obligatorio declararlos en la API nueva).
+const FIELD_MASK = [
+  'places.id',
+  'places.displayName',
+  'places.nationalPhoneNumber',
+  'places.internationalPhoneNumber',
+  'places.websiteUri',
+  'places.formattedAddress',
+  'places.location'
+].join(',');
+
+const SEARCH_NEARBY_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+
+async function searchPlaces(key, lat, lng, radius, type) {
+  // Places API (New): una sola llamada trae nombre, teléfono, web y
+  // dirección. Devuelve hasta 20 resultados y no admite paginación.
+  const body = {
+    maxResultCount: 20,
+    locationRestriction: {
+      circle: {
+        center: { latitude: lat, longitude: lng },
+        radius: radius
+      }
+    }
+  };
+  if (type) body.includedTypes = [type];
+
+  const resp = await fetch(SEARCH_NEARBY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': FIELD_MASK
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
+
+  return (data.places || []).map(p => ({
+    place_id: p.id || '',
+    name:     p.displayName?.text || '',
+    phone:    p.nationalPhoneNumber || p.internationalPhoneNumber || '',
+    website:  p.websiteUri || '',
+    address:  p.formattedAddress || '',
+    lat:      p.location?.latitude,
+    lng:      p.location?.longitude
+  }));
+}
+
+// ─── COST ─────────────────────────────────────────────────────────────────────
+function addCost(amount) {
+  totalCost += amount;
+  const pct = Math.min((totalCost / FREE_TIER) * 100, 100);
+  document.getElementById('cost-display').textContent = `$${totalCost.toFixed(3)}`;
+  const bar = document.getElementById('cost-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 80 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
+}
+
+// ─── RENDER LIST ──────────────────────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('results-list');
+  const all  = Object.values(businesses);
+  document.getElementById('total-badge').textContent = `${all.length} negocios`;
+
+  if (all.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🗺️</div><div>Hacé click en el mapa para elegir un punto y luego buscá negocios</div></div>`;
+    return;
+  }
+
+  list.innerHTML = all.map(b => `
+    <div class="biz-card" id="card-${b.place_id}" onclick="selectBiz('${b.place_id}')">
+      <div class="biz-name" title="${b.name}">${b.name}</div>
+      <div class="biz-meta">
+        ${b.phone ? `<span class="biz-phone">${b.phone}</span>` : '<span class="biz-phone" style="color:var(--text3)">Sin teléfono</span>'}
+        <span class="web-badge ${b.website ? 'web-yes' : 'web-no'}">${b.website ? '🌐 Tiene web' : 'Sin web'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── MARKERS ──────────────────────────────────────────────────────────────────
+function renderMarkers() {
+  Object.values(businesses).forEach(b => {
+    if (bizMarkers[b.place_id] || !b.lat) return;
+    const color = b.website ? '#34d399' : '#94a3b8';
+    const m = L.circleMarker([b.lat, b.lng], {
+      radius: 6, color, fillColor: color, fillOpacity: .8, weight: 1.5
+    }).addTo(map).on('click', () => selectBiz(b.place_id));
+    bizMarkers[b.place_id] = m;
+  });
+}
+
+// ─── SELECT BIZ ───────────────────────────────────────────────────────────────
+function selectBiz(place_id) {
+  const b = businesses[place_id];
+  if (!b) return;
+
+  // highlight card
+  if (selectedCard) document.getElementById('card-'+selectedCard)?.classList.remove('selected');
+  selectedCard = place_id;
+  document.getElementById('card-'+place_id)?.classList.add('selected');
+  document.getElementById('card-'+place_id)?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // pan map
+  if (b.lat) map.panTo([b.lat, b.lng]);
+
+  // detail panel
+  document.getElementById('dp-name').textContent = b.name;
+  document.getElementById('dp-phone').innerHTML  = b.phone
+    ? `📞 <a href="tel:${b.phone}">${b.phone}</a>`
+    : '<span style="color:var(--text3)">Sin teléfono registrado</span>';
+  document.getElementById('dp-web').innerHTML = b.website
+    ? `🌐 <a href="${b.website}" target="_blank">${b.website}</a>`
+    : '<span style="color:var(--text3)">Sin sitio web</span>';
+  document.getElementById('dp-address').textContent = b.address || '';
+  document.getElementById('detail-panel').classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('visible');
+  if (selectedCard) document.getElementById('card-'+selectedCard)?.classList.remove('selected');
+  selectedCard = null;
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportJSON() {
+  const data = { businesses, searchZones, totalCost, exportedAt: new Date().toISOString() };
+  download('places_scout.json', JSON.stringify(data, null, 2), 'application/json');
+  toast('JSON exportado');
+}
+
+function exportCSV() {
+  const rows = [['nombre','telefono','tiene_web','website','direccion','lat','lng','consultado_en']];
+  Object.values(businesses).forEach(b => {
+    rows.push([
+      `"${(b.name||'').replace(/"/g,'""')}"`,
+      b.phone, b.website ? 'sí' : 'no',
+      b.website, `"${(b.address||'').replace(/"/g,'""')}"`,
+      b.lat, b.lng, b.queried_at
+    ]);
+  });
+  download('places_scout.csv', rows.map(r=>r.join(',')).join('\n'), 'text/csv');
+  toast('CSV exportado');
+}
+
+function download(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+}
+
+// ─── IMPORT ───────────────────────────────────────────────────────────────────
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.businesses) {
+        businesses = { ...data.businesses };
+        searchZones = data.searchZones || [];
+        if (data.totalCost) { totalCost = 0; addCost(data.totalCost); }
+        renderList();
+        renderMarkers();
+        toast(`✓ ${Object.keys(businesses).length} negocios importados`);
+        document.getElementById('import-banner').style.display = 'none';
+      }
+    } catch {
+      toast('Archivo JSON inválido', 'error');
+    }
+  };
+  reader.readAsText(file);
+});
+
+// ─── CLEAR ────────────────────────────────────────────────────────────────────
+function clearAll() {
+  if (!confirm('¿Borrar todos los datos acumulados?')) return;
+  businesses = {}; searchZones = []; totalCost = 0;
+  Object.values(bizMarkers).forEach(m => m.remove());
+  bizMarkers = {};
+  addCost(0); document.getElementById('cost-display').textContent = '$0.000';
+  renderList();
+  toast('Datos eliminados');
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function toggleKey() {
+  const inp = document.getElementById('api-key');
+  const tog = document.querySelector('.key-toggle');
+  if (inp.type === 'password') { inp.type = 'text'; tog.textContent = 'ocultar'; }
+  else { inp.type = 'password'; tog.textContent = 'mostrar'; }
+}
+
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = type === 'error' ? 'var(--red)' : type === 'warn' ? 'var(--yellow)' : 'var(--border)';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
