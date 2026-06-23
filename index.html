@@ -211,7 +211,8 @@
   .web-badge {
     font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 500;
   }
-  .web-yes { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.3); }
+  .web-yes { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.3); text-decoration: none; }
+  .web-social { background: rgba(251,191,36,.13); color: var(--yellow); border: 1px solid rgba(251,191,36,.3); text-decoration: none; }
   .web-no  { background: rgba(100,116,139,.1); color: var(--text3); border: 1px solid var(--border); }
 
   /* MAP */
@@ -412,11 +413,11 @@
       <button class="vbtn active" data-view="map" onclick="setView('map')">🗺️ Mapa</button>
       <button class="vbtn" data-view="table" onclick="setView('table')">📋 Tabla</button>
     </div>
-    <div class="cost-badge">
-      <span class="cost-label">Free tier</span>
+    <div class="cost-badge" title="Cada búsqueda = 1 evento Enterprise (incluye teléfono y web). Cupo gratis: 1000/mes por SKU.">
+      <span class="cost-label">Búsquedas/mes</span>
       <div class="cost-bar-wrap"><div class="cost-bar" id="cost-bar" style="width:0%"></div></div>
-      <span class="cost-val" id="cost-display">$0.00</span>
-      <span class="cost-label">/ $200</span>
+      <span class="cost-val" id="cost-display">0 / 1000</span>
+      <span class="cost-label" id="cost-usd">$0.00</span>
     </div>
   </div>
 </header>
@@ -479,7 +480,16 @@
           <option value="beauty_salon">Salón de belleza</option>
           <option value="electrician">Electricista</option>
           <option value="plumber">Plomero</option>
+          <option value="veterinary_care">Veterinaria</option>
+          <option value="hardware_store">Ferretería</option>
         </select>
+      </div>
+
+      <!-- KEYWORD (texto libre, usa Text Search) -->
+      <div>
+        <label>Palabra clave (opcional)</label>
+        <input type="text" id="keyword" placeholder="Ej: barraca, agroveterinaria, corralón" />
+        <div class="hint">Si la completás, busca por texto (ignora el tipo de arriba). Útil para rubros sin tipo fijo en Google.</div>
       </div>
 
       <div class="action-row">
@@ -533,8 +543,8 @@
         <input type="text" id="filter-text" placeholder="Buscar nombre o dirección…" oninput="onFilterChange()" />
         <div class="seg" id="filter-web">
           <button class="seg-btn active" data-web="all" onclick="setWebFilter('all', this)">Todos</button>
-          <button class="seg-btn" data-web="yes" onclick="setWebFilter('yes', this)">Con web</button>
-          <button class="seg-btn" data-web="no" onclick="setWebFilter('no', this)">Sin web</button>
+          <button class="seg-btn" data-web="no_own" onclick="setWebFilter('no_own', this)">Sin web propia</button>
+          <button class="seg-btn" data-web="own" onclick="setWebFilter('own', this)">Con web propia</button>
         </div>
         <select id="filter-status" onchange="onFilterChange()"></select>
         <span class="badge" id="table-count" style="margin-left:auto">0</span>
@@ -575,9 +585,20 @@ let totalCost = 0;
 let map, centerMarker, radiusCircle, bizMarkers = {};
 let selectedCard = null;
 
-// Cost per request (USD)
+// Cost per request (USD) y cupo gratuito mensual (Places API New, tier Enterprise).
 const COST_NEARBY  = 0.032;
-const FREE_TIER    = 200;
+const FREE_CALLS_MONTH = 1000;   // searchNearby/searchText Enterprise: 1000 eventos gratis/mes
+
+// Conteo de búsquedas por mes (para medir el cupo gratuito). { 'YYYY-MM': n }
+let usage = {};
+
+// Dominios que NO cuentan como "web propia" (redes / linktree / etc.)
+const SOCIAL_DOMAINS = [
+  'instagram.com','facebook.com','fb.com','fb.me','m.facebook.com','wa.me',
+  'api.whatsapp.com','whatsapp.com','linktr.ee','linktree.com','tiktok.com',
+  'twitter.com','x.com','t.me','telegram.me','linkedin.com','beacons.ai',
+  'business.site','sites.google.com'
+];
 
 // ─── CRM: estados de gestión ─────────────────────────────────────────────────
 const STATUSES = [
@@ -622,6 +643,7 @@ window.addEventListener('DOMContentLoaded', () => {
     toast(`✓ ${Object.keys(businesses).length} negocios restaurados`);
   } else {
     renderFunnel();
+    renderUsage();
   }
 });
 
@@ -658,8 +680,9 @@ async function runSearch() {
   const key    = document.getElementById('api-key').value.trim();
   const lat    = parseFloat(document.getElementById('lat').value);
   const lng    = parseFloat(document.getElementById('lng').value);
-  const radius = parseInt(document.getElementById('radius').value);
-  const btype  = document.getElementById('btype').value;
+  const radius  = parseInt(document.getElementById('radius').value);
+  const btype   = document.getElementById('btype').value;
+  const keyword = document.getElementById('keyword').value.trim();
 
   if (!key)             { toast('Ingresá tu API Key de Google', 'warn'); return; }
   if (isNaN(lat)||isNaN(lng)) { toast('Hacé click en el mapa para elegir un punto', 'warn'); return; }
@@ -671,7 +694,10 @@ async function runSearch() {
   try {
     // Llamamos a la Places API (New) directamente desde el navegador
     // (soporta CORS), así no hace falta backend y funciona en GitHub Pages.
-    const found = await searchPlaces(key, lat, lng, radius, btype);
+    // Con palabra clave usamos Text Search; si no, Nearby Search por tipo.
+    const found = keyword
+      ? await searchPlacesText(key, lat, lng, radius, keyword)
+      : await searchPlaces(key, lat, lng, radius, btype);
     toast(`${found.length} negocios encontrados`);
 
     let nuevos = 0;
@@ -695,9 +721,10 @@ async function runSearch() {
       nuevos++;
     }
 
-    // Places API (New): una sola llamada searchNearby por búsqueda.
+    // Places API (New): una sola llamada por búsqueda. Sumamos costo y uso mensual.
     addCost(COST_NEARBY);
-    searchZones.push({ lat, lng, radius, type: btype, ts: new Date().toISOString(), found: found.length });
+    bumpUsage();
+    searchZones.push({ lat, lng, radius, type: btype, keyword, ts: new Date().toISOString(), found: found.length });
 
     saveState();
     renderList();
@@ -757,7 +784,41 @@ async function searchPlaces(key, lat, lng, radius, type) {
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
 
-  return (data.places || []).map(p => ({
+  return (data.places || []).map(mapPlace);
+}
+
+const SEARCH_TEXT_URL = 'https://places.googleapis.com/v1/places:searchText';
+
+async function searchPlacesText(key, lat, lng, radius, keyword) {
+  // Text Search (New): busca por texto libre (rubros sin tipo fijo en Google,
+  // ej. "barraca", "agroveterinaria"). Sesgo de ubicación por círculo (center+radio).
+  const body = {
+    textQuery: keyword,
+    languageCode: 'es',
+    regionCode: 'UY',
+    maxResultCount: 20,
+    locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: radius } }
+  };
+
+  const resp = await fetch(SEARCH_TEXT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': FIELD_MASK
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
+
+  return (data.places || []).map(mapPlace);
+}
+
+// Mapper común para Nearby y Text Search.
+function mapPlace(p) {
+  return {
     place_id:   p.id || '',
     name:       p.displayName?.text || '',
     phone:      p.nationalPhoneNumber || p.internationalPhoneNumber || '',
@@ -766,14 +827,28 @@ async function searchPlaces(key, lat, lng, radius, type) {
     address:    p.formattedAddress || '',
     lat:        p.location?.latitude,
     lng:        p.location?.longitude
-  }));
+  };
 }
 
-// ─── COST ─────────────────────────────────────────────────────────────────────
+// ─── COSTO Y USO MENSUAL ────────────────────────────────────────────────────────
+function monthKey() { return new Date().toISOString().slice(0, 7); }  // 'YYYY-MM'
+
 function addCost(amount) {
   totalCost += amount;
-  const pct = Math.min((totalCost / FREE_TIER) * 100, 100);
-  document.getElementById('cost-display').textContent = `$${totalCost.toFixed(3)}`;
+  document.getElementById('cost-usd').textContent = `$${totalCost.toFixed(3)}`;
+}
+
+function bumpUsage() {
+  const m = monthKey();
+  usage[m] = (usage[m] || 0) + 1;
+  saveState();
+  renderUsage();
+}
+
+function renderUsage() {
+  const n = usage[monthKey()] || 0;
+  const pct = Math.min((n / FREE_CALLS_MONTH) * 100, 100);
+  document.getElementById('cost-display').textContent = `${n} / ${FREE_CALLS_MONTH}`;
   const bar = document.getElementById('cost-bar');
   bar.style.width = pct + '%';
   bar.style.background = pct > 80 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
@@ -783,7 +858,7 @@ function addCost(amount) {
 function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      businesses, searchZones, totalCost, savedAt: new Date().toISOString()
+      businesses, searchZones, totalCost, usage, savedAt: new Date().toISOString()
     }));
   } catch (e) { /* storage lleno o no disponible */ }
 }
@@ -795,7 +870,9 @@ function loadState() {
     const data = JSON.parse(raw);
     businesses  = normalizeBusinesses(data.businesses || {});
     searchZones = data.searchZones || [];
+    usage       = data.usage || {};
     totalCost   = 0; addCost(data.totalCost || 0);
+    renderUsage();
     return Object.keys(businesses).length > 0;
   } catch (e) { return false; }
 }
@@ -843,8 +920,9 @@ function applyFilters(list) {
   const txt = (document.getElementById('filter-text')?.value || '').trim().toLowerCase();
   const st  = document.getElementById('filter-status')?.value || '';
   return list.filter(b => {
-    if (webFilter === 'yes' && !b.website) return false;
-    if (webFilter === 'no'  &&  b.website) return false;
+    const kind = webKind(b.website);
+    if (webFilter === 'own'    && kind !== 'own') return false;  // solo con web propia
+    if (webFilter === 'no_own' && kind === 'own') return false; // sin web propia (incluye "solo redes")
     if (st && b.status !== st) return false;
     if (txt && !((b.name || '').toLowerCase().includes(txt) ||
                  (b.address || '').toLowerCase().includes(txt))) return false;
@@ -877,7 +955,10 @@ function renderList() {
       <div class="biz-meta">
         <span class="status-dot" style="background:${s.color}" title="${s.label}"></span>
         ${b.phone ? `<span class="biz-phone">${escapeHtml(b.phone)}</span>` : '<span class="biz-phone" style="color:var(--text3)">Sin teléfono</span>'}
-        <span class="web-badge ${b.website ? 'web-yes' : 'web-no'}">${b.website ? '🌐 Tiene web' : 'Sin web'}</span>
+        ${(() => { const k = webKind(b.website);
+          return k === 'own'    ? '<span class="web-badge web-yes">🌐 Web propia</span>'
+               : k === 'social' ? '<span class="web-badge web-social">📱 Solo redes</span>'
+               : '<span class="web-badge web-no">Sin web</span>'; })()}
       </div>
     </div>`;
   }).join('');
@@ -907,9 +988,7 @@ function renderTable() {
     const waBtn = wa
       ? `<a class="act-btn wa" href="${wa}" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>`
       : `<span class="act-btn disabled" title="Sin teléfono">WhatsApp</span>`;
-    const webCell = b.website
-      ? `<a class="web-badge web-yes" href="${escapeAttr(b.website)}" target="_blank" rel="noopener">🌐 Sí</a>`
-      : `<span class="web-badge web-no">Sin web</span>`;
+    const webCell = webBadge(b);
 
     return `
     <tr>
@@ -1029,8 +1108,9 @@ function selectBiz(place_id) {
   document.getElementById('dp-phone').innerHTML  = b.phone
     ? `📞 <a href="tel:${escapeAttr(b.phone)}">${escapeHtml(b.phone)}</a>`
     : '<span style="color:var(--text3)">Sin teléfono registrado</span>';
+  const wk = webKind(b.website);
   document.getElementById('dp-web').innerHTML = b.website
-    ? `🌐 <a href="${escapeAttr(b.website)}" target="_blank" rel="noopener">${escapeHtml(b.website)}</a>`
+    ? `${wk === 'social' ? '📱 Solo redes:' : '🌐'} <a href="${escapeAttr(b.website)}" target="_blank" rel="noopener">${escapeHtml(b.website)}</a>`
     : '<span style="color:var(--text3)">Sin sitio web</span>';
   document.getElementById('dp-address').textContent = b.address || '';
   document.getElementById('detail-panel').classList.add('visible');
@@ -1044,17 +1124,18 @@ function closeDetail() {
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportJSON() {
-  const data = { businesses, searchZones, totalCost, exportedAt: new Date().toISOString() };
+  const data = { businesses, searchZones, totalCost, usage, exportedAt: new Date().toISOString() };
   download('places_scout.json', JSON.stringify(data, null, 2), 'application/json');
   toast('JSON exportado');
 }
 
 function exportCSV() {
-  const rows = [['nombre','telefono','tiene_web','website','direccion','estado','notas','ultimo_contacto','lat','lng','consultado_en']];
+  const rows = [['nombre','telefono','web','website','direccion','estado','notas','ultimo_contacto','lat','lng','consultado_en']];
+  const WEB_LABEL = { none: 'sin web', social: 'solo redes', own: 'web propia' };
   Object.values(businesses).forEach(b => {
     rows.push([
       `"${(b.name||'').replace(/"/g,'""')}"`,
-      b.phone, b.website ? 'sí' : 'no',
+      b.phone, WEB_LABEL[webKind(b.website)],
       b.website, `"${(b.address||'').replace(/"/g,'""')}"`,
       STATUS_MAP[b.status]?.label || b.status,
       `"${(b.notes||'').replace(/"/g,'""')}"`,
@@ -1084,7 +1165,9 @@ document.getElementById('import-file').addEventListener('change', e => {
       if (data.businesses) {
         businesses = normalizeBusinesses(data.businesses);
         searchZones = data.searchZones || [];
+        if (data.usage) usage = data.usage;
         if (data.totalCost) { totalCost = 0; addCost(data.totalCost); }
+        renderUsage();
         saveState();
         renderList();
         renderMarkers();
@@ -1103,17 +1186,17 @@ document.getElementById('import-file').addEventListener('change', e => {
 
 // ─── CLEAR ────────────────────────────────────────────────────────────────────
 function clearAll() {
-  if (!confirm('¿Borrar todos los datos acumulados?')) return;
+  if (!confirm('¿Borrar los negocios acumulados? (el contador de búsquedas del mes se mantiene)')) return;
   businesses = {}; searchZones = []; totalCost = 0;
   Object.values(bizMarkers).forEach(m => m.remove());
   bizMarkers = {};
-  try { localStorage.removeItem(LS_KEY); } catch (e) {}
-  addCost(0); document.getElementById('cost-display').textContent = '$0.000';
+  saveState();                 // conserva 'usage' (las llamadas ya consumidas este mes)
+  document.getElementById('cost-usd').textContent = '$0.000';
   renderList();
   renderTable();
   renderFunnel();
   document.getElementById('map-legend').style.display = 'none';
-  toast('Datos eliminados');
+  toast('Negocios eliminados');
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -1122,6 +1205,23 @@ function escapeHtml(s) {
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+// Clasifica el sitio: 'none' (sin web) | 'social' (solo redes) | 'own' (web propia)
+function webKind(url) {
+  if (!url) return 'none';
+  let host;
+  try { host = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); }
+  catch { return 'own'; }
+  return SOCIAL_DOMAINS.some(d => host === d || host.endsWith('.' + d)) ? 'social' : 'own';
+}
+
+// Devuelve el HTML del badge de web. Si hay URL propia/social, es link.
+function webBadge(b) {
+  const kind = webKind(b.website);
+  if (kind === 'own')    return `<a class="web-badge web-yes" href="${escapeAttr(b.website)}" target="_blank" rel="noopener">🌐 Web propia</a>`;
+  if (kind === 'social') return `<a class="web-badge web-social" href="${escapeAttr(b.website)}" target="_blank" rel="noopener">📱 Solo redes</a>`;
+  return `<span class="web-badge web-no">Sin web</span>`;
+}
 
 function toggleKey() {
   const inp = document.getElementById('api-key');
