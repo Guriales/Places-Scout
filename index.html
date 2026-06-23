@@ -312,6 +312,15 @@
   }
   #import-banner button { margin-left: auto; }
 
+  /* GATE (acceso) */
+  #gate { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+  #gate.hidden { display: none; }
+  .gate-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: 320px; text-align: center; }
+  .gate-logo { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .gate-sub { color: var(--text3); font-size: 12px; margin-bottom: 18px; }
+  .gate-box input { margin-bottom: 12px; text-align: center; }
+  .gate-err { color: var(--red); font-size: 12px; min-height: 16px; margin-top: 8px; }
+
   /* FOOTER TOOLBAR */
   .sidebar-footer {
     padding: 10px 16px;
@@ -399,6 +408,17 @@
 </style>
 </head>
 <body>
+
+<!-- GATE: acceso con clave (freno simple, no seguridad real) -->
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">📍 Places Scout</div>
+    <p class="gate-sub">Acceso restringido</p>
+    <input type="password" id="gate-pass" placeholder="Contraseña" autocomplete="off" />
+    <button class="btn btn-primary" onclick="checkGate()">Entrar</button>
+    <p class="gate-err" id="gate-err"></p>
+  </div>
+</div>
 
 <header>
   <div class="logo">
@@ -617,8 +637,41 @@ const WA_TEMPLATE = '¡Hola! Te escribo de Gurial. Vimos {name} y diseñamos pá
 // Filtros activos
 let webFilter = 'all';
 
+// ─── ACCESO (gate simple) ───────────────────────────────────────────────────────
+// Freno basico, NO seguridad real (la pagina es publica; el codigo es visible).
+// Para cambiar la clave: generar el SHA-256 de la nueva y reemplazar ACCESS_HASH.
+//   printf '%s' 'TU-CLAVE' | shasum -a 256
+const ACCESS_HASH = 'bccc9485e233b7c4c0bcc1c796938632a6d17b76384537e9963cf0b82368010a'; // default: gurial2026
+const GATE_KEY = 'ps_unlocked';
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkGate() {
+  const hash = await sha256(document.getElementById('gate-pass').value);
+  if (hash === ACCESS_HASH) {
+    try { localStorage.setItem(GATE_KEY, '1'); } catch (e) {}
+    document.getElementById('gate').classList.add('hidden');
+    if (map) setTimeout(() => map.invalidateSize(), 60);
+  } else {
+    document.getElementById('gate-err').textContent = 'Contraseña incorrecta';
+  }
+}
+
+function initGate() {
+  let unlocked = false;
+  try { unlocked = localStorage.getItem(GATE_KEY) === '1'; } catch (e) {}
+  if (unlocked) { document.getElementById('gate').classList.add('hidden'); return; }
+  const inp = document.getElementById('gate-pass');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') checkGate(); });
+  inp.focus();
+}
+
 // ─── MAP INIT ─────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+  initGate();
   map = L.map('map', { zoomControl: true }).setView([-34.9011, -56.1645], 13);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
