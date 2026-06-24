@@ -567,6 +567,8 @@
           <button class="seg-btn" data-web="own" onclick="setWebFilter('own', this)">Con web propia</button>
         </div>
         <select id="filter-status" onchange="onFilterChange()"></select>
+        <select id="filter-type" onchange="onFilterChange()"></select>
+        <select id="filter-dept" onchange="onFilterChange()"></select>
         <span class="badge" id="table-count" style="margin-left:auto">0</span>
       </div>
       <div class="funnel" id="funnel"></div>
@@ -575,6 +577,7 @@
           <thead>
             <tr>
               <th>Negocio</th>
+              <th>Tipo</th>
               <th>Teléfono</th>
               <th>Web</th>
               <th>Dirección</th>
@@ -604,6 +607,7 @@ let searchZones = [];  // { lat, lng, radius, ts }
 let totalCost = 0;
 let map, centerMarker, radiusCircle, bizMarkers = {};
 let selectedCard = null;
+let pendingFit = false;  // encuadrar el mapa a los resultados cuando vuelva a estar visible
 
 // Cost per request (USD) y cupo gratuito mensual (Places API New, tier Enterprise).
 const COST_NEARBY  = 0.032;
@@ -765,6 +769,8 @@ async function runSearch() {
         address:    b.address || '',
         lat:        b.lat,
         lng:        b.lng,
+        category:   b.category || '',
+        department: b.department || '',
         queried_at: new Date().toISOString(),
         // Capa CRM
         status:       'sin_contactar',
@@ -784,6 +790,7 @@ async function runSearch() {
     renderMarkers();
     renderTable();
     renderFunnel();
+    requestFit();
     toast(`✓ ${nuevos} negocios nuevos agregados`);
     document.getElementById('map-hint').style.opacity = '0';
     document.getElementById('map-legend').style.display = 'flex';
@@ -805,7 +812,9 @@ const FIELD_MASK = [
   'places.internationalPhoneNumber',
   'places.websiteUri',
   'places.formattedAddress',
-  'places.location'
+  'places.location',
+  'places.primaryTypeDisplayName',
+  'places.addressComponents'
 ].join(',');
 
 const SEARCH_NEARBY_URL = 'https://places.googleapis.com/v1/places:searchNearby';
@@ -815,6 +824,8 @@ async function searchPlaces(key, lat, lng, radius, type) {
   // dirección. Devuelve hasta 20 resultados y no admite paginación.
   const body = {
     maxResultCount: 20,
+    languageCode: 'es',
+    regionCode: 'UY',
     locationRestriction: {
       circle: {
         center: { latitude: lat, longitude: lng },
@@ -879,8 +890,17 @@ function mapPlace(p) {
     website:    p.websiteUri || '',
     address:    p.formattedAddress || '',
     lat:        p.location?.latitude,
-    lng:        p.location?.longitude
+    lng:        p.location?.longitude,
+    category:   p.primaryTypeDisplayName?.text || '',
+    department: extractDepartment(p.addressComponents)
   };
+}
+
+// Departamento (Uruguay) = administrative_area_level_1 dentro de addressComponents.
+function extractDepartment(components) {
+  if (!Array.isArray(components)) return '';
+  const c = components.find(c => (c.types || []).includes('administrative_area_level_1'));
+  return c ? (c.longText || c.shortText || '') : '';
 }
 
 // ─── COSTO Y USO MENSUAL ────────────────────────────────────────────────────────
@@ -934,7 +954,7 @@ function loadState() {
 function normalizeBusinesses(obj) {
   const out = {};
   for (const [id, b] of Object.entries(obj)) {
-    out[id] = { status: 'sin_contactar', notes: '', last_contact: '', phone_intl: '', ...b };
+    out[id] = { status: 'sin_contactar', notes: '', last_contact: '', phone_intl: '', category: '', department: '', ...b };
     if (!STATUS_MAP[out[id].status]) out[id].status = 'sin_contactar';
   }
   return out;
@@ -945,7 +965,10 @@ function setView(v) {
   document.getElementById('map-view').style.display   = (v === 'map')   ? 'flex' : 'none';
   document.getElementById('table-view').style.display = (v === 'table') ? 'flex' : 'none';
   document.querySelectorAll('.vbtn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  if (v === 'map' && map) setTimeout(() => map.invalidateSize(), 60);  // Leaflet necesita esto tras estar oculto
+  if (v === 'map' && map) setTimeout(() => {
+    map.invalidateSize();             // Leaflet necesita esto tras estar oculto
+    if (pendingFit) fitMapToResults(); // aplicar encuadre diferido desde la vista Tabla
+  }, 60);
   if (v === 'table') { renderTable(); renderFunnel(); }
 }
 
@@ -967,20 +990,47 @@ function onFilterChange() {
   renderTable();
   renderMarkers();
   renderList();
+  requestFit();
 }
 
+const NO_DATA = ' sindato';  // sentinel para "Sin dato" en los selects de tipo/depto
+
 function applyFilters(list) {
-  const txt = (document.getElementById('filter-text')?.value || '').trim().toLowerCase();
-  const st  = document.getElementById('filter-status')?.value || '';
+  const txt  = (document.getElementById('filter-text')?.value || '').trim().toLowerCase();
+  const st   = document.getElementById('filter-status')?.value || '';
+  const tp   = document.getElementById('filter-type')?.value || '';
+  const dept = document.getElementById('filter-dept')?.value || '';
   return list.filter(b => {
     const kind = webKind(b.website);
     if (webFilter === 'own'    && kind !== 'own') return false;  // solo con web propia
     if (webFilter === 'no_own' && kind === 'own') return false; // sin web propia (incluye "solo redes")
     if (st && b.status !== st) return false;
+    if (tp)   { if (tp   === NO_DATA ? (b.category || '')   : b.category   !== tp)   return false; }
+    if (dept) { if (dept === NO_DATA ? (b.department || '') : b.department !== dept) return false; }
     if (txt && !((b.name || '').toLowerCase().includes(txt) ||
                  (b.address || '').toLowerCase().includes(txt))) return false;
     return true;
   });
+}
+
+// Rellena los selects de tipo y departamento con los valores presentes en los datos.
+function refreshFilterOptions() {
+  fillFilterSelect('filter-type', 'category', 'Todos los tipos');
+  fillFilterSelect('filter-dept', 'department', 'Todos los deptos');
+}
+
+function fillFilterSelect(id, field, allLabel) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const prev = sel.value;
+  const vals = [...new Set(Object.values(businesses).map(b => b[field]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const hasEmpty = Object.values(businesses).some(b => !b[field]);
+  let html = `<option value="">${allLabel}</option>` +
+    vals.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+  if (hasEmpty) html += `<option value="${NO_DATA}">Sin dato</option>`;
+  sel.innerHTML = html;
+  // Preservar la selección si todavía existe
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 // ─── RENDER LIST (sidebar) ──────────────────────────────────────────────────────
@@ -1021,12 +1071,13 @@ function renderList() {
 function renderTable() {
   const tbody = document.getElementById('crm-tbody');
   if (!tbody) return;
+  refreshFilterOptions();
   const rows = applyFilters(Object.values(businesses));
   document.getElementById('table-count').textContent =
     `${rows.length} / ${Object.keys(businesses).length}`;
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="t-empty">Sin negocios para este filtro. Hacé una búsqueda en el mapa.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="t-empty">Sin negocios para este filtro. Hacé una búsqueda en el mapa.</td></tr>`;
     return;
   }
 
@@ -1041,11 +1092,13 @@ function renderTable() {
     const waBtn = wa
       ? `<a class="act-btn wa" href="${wa}" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>`
       : `<span class="act-btn disabled" title="Sin teléfono">WhatsApp</span>`;
+    const mapsBtn = `<a class="act-btn" href="${gmapsLink(b)}" target="_blank" rel="noopener" title="Ver en Google Maps">📍 Maps</a>`;
     const webCell = webBadge(b);
 
     return `
     <tr>
       <td class="t-name">${escapeHtml(b.name)}</td>
+      <td style="color:var(--text2)">${b.category ? escapeHtml(b.category) : '<span style="color:var(--text3)">—</span>'}</td>
       <td class="t-mono">${b.phone ? escapeHtml(b.phone) : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${webCell}</td>
       <td style="color:var(--text2); max-width:240px">${escapeHtml(b.address || '—')}</td>
@@ -1056,7 +1109,7 @@ function renderTable() {
       <td><input class="note-input" value="${escapeAttr(b.notes)}" placeholder="—"
                  onchange="changeNote('${b.place_id}', this.value)" /></td>
       <td class="t-mono">${b.last_contact || '<span style="color:var(--text3)">—</span>'}</td>
-      <td><div class="act-cell">${callBtn}${waBtn}</div></td>
+      <td><div class="act-cell">${callBtn}${waBtn}${mapsBtn}</div></td>
     </tr>`;
   }).join('');
 }
@@ -1066,6 +1119,14 @@ function waLink(b) {
   if (!digits) return '';
   const msg = WA_TEMPLATE.replace('{name}', b.name || 'tu negocio');
   return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+}
+
+// Link al negocio exacto en Google Maps (por place_id; fallback a coordenadas).
+function gmapsLink(b) {
+  const q = encodeURIComponent(b.name || `${b.lat},${b.lng}`);
+  return b.place_id
+    ? `https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=${encodeURIComponent(b.place_id)}`
+    : `https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lng}`;
 }
 
 // ─── FUNNEL SUMMARY ─────────────────────────────────────────────────────────────
@@ -1130,6 +1191,25 @@ function renderMarkers() {
       bizMarkers[b.place_id] = m;
     }
   });
+}
+
+// Encuadra el mapa para mostrar exactamente los negocios que pasan el filtro.
+// Si el mapa está oculto (vista Tabla), difiere el encuadre hasta que se muestre.
+function requestFit() {
+  pendingFit = true;
+  const mapVisible = document.getElementById('map-view').style.display !== 'none';
+  if (mapVisible) fitMapToResults();
+}
+
+function fitMapToResults() {
+  if (!map) return;
+  const pts = applyFilters(Object.values(businesses))
+    .filter(b => b.lat != null && b.lng != null)
+    .map(b => [b.lat, b.lng]);
+  if (pts.length === 0) { pendingFit = false; return; }
+  if (pts.length === 1) map.setView(pts[0], 16);
+  else map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+  pendingFit = false;
 }
 
 function buildMapLegend() {
