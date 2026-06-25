@@ -533,6 +533,7 @@
     </div>
 
     <div class="sidebar-footer">
+      <button class="btn btn-sm" onclick="document.getElementById('import-file').click()" title="Importar JSON">📂 Importar</button>
       <button class="btn btn-sm" onclick="exportJSON()" title="Exportar sesión">💾 JSON</button>
       <button class="btn btn-sm" onclick="exportCSV()" title="Exportar CSV">📊 CSV</button>
       <button class="btn btn-danger" onclick="clearAll()" title="Borrar todo">🗑️ Limpiar</button>
@@ -1296,6 +1297,12 @@ document.getElementById('import-file').addEventListener('change', e => {
     try {
       const data = JSON.parse(ev.target.result);
       if (data.businesses) {
+        const entran = Object.keys(data.businesses).length;
+        if (Object.keys(businesses).length > 0 &&
+            !confirm(`Esto REEMPLAZA tus ${Object.keys(businesses).length} negocios actuales por los ${entran} del archivo. ¿Continuar? (exportá un respaldo antes si querés conservarlos)`)) {
+          e.target.value = '';
+          return;
+        }
         businesses = normalizeBusinesses(data.businesses);
         searchZones = data.searchZones || [];
         if (data.usage) usage = data.usage;
@@ -1313,6 +1320,7 @@ document.getElementById('import-file').addEventListener('change', e => {
     } catch {
       toast('Archivo JSON inválido', 'error');
     }
+    e.target.value = '';  // permitir re-importar el mismo archivo
   };
   reader.readAsText(file);
 });
